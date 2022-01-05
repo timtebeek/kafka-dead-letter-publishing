@@ -1,3 +1,11 @@
 = Kafka Dead Letter Publishing
 
-https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#dead-letters
+https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#dead-letters[Publishing Dead-letter Records]
+
+https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#configuring-topics[Configuring Topics]
+
+https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#kafka-validation[@KafkaListener @Payload Validation]
+
+https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#ktu[KafkaTestUtils]
+
+https://www.testcontainers.org/modules/kafka/[Testcontainers Kafka]

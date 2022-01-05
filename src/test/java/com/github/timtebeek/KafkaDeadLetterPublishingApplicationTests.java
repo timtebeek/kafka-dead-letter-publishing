@@ -23,8 +23,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
-import java.util.UUID;
 
+import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -41,6 +41,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 
 	@DynamicPropertySource
 	static void setProperties(DynamicPropertyRegistry registry) {
+		// Connect our Spring application to our Testcontainers Kafka instance
 		registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
 	}
 
@@ -51,6 +52,8 @@ class KafkaDeadLetterPublishingApplicationTests {
 
 	@BeforeAll
 	static void setup() {
+		// Create a test consumer that handles <String, String> records, listening to orders.DLT
+		// https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#testing
 		var consumerProps = KafkaTestUtils.consumerProps(kafka.getBootstrapServers(), "test-consumer", "true");
 		consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 		kafkaConsumer = new KafkaConsumer<>(consumerProps);
@@ -59,30 +62,31 @@ class KafkaDeadLetterPublishingApplicationTests {
 
 	@AfterAll
 	static void close() {
+		// Close the consumer before shutting down Testcontainers Kafka instance
 		kafkaConsumer.close();
 	}
 
 	@Test
 	void should_not_produce_onto_dlt_for_ok_message() throws Exception {
-		UUID orderId = UUID.randomUUID();
-		UUID articleId = UUID.randomUUID();
-		operations.send("orders", orderId.toString(), new Order(orderId, articleId, 1))
+		// Send in valid order
+		Order order = new Order(randomUUID(), randomUUID(), 1);
+		operations.send("orders", order.orderId().toString(), order)
 				.addCallback(
 						success -> log.info("Success: {}", success),
 						failure -> log.info("Failure: {}", failure));
 
 		// Verify no message was produced onto Dead Letter Topic
-		IllegalStateException illegalStateException = assertThrows(IllegalStateException.class,
-				() -> KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 5000));
-		assertThat(illegalStateException.getMessage()).isEqualTo("No records found for topic");
+		assertThrows(
+				IllegalStateException.class,
+				() -> KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 5000),
+				"No records found for topic");
 	}
 
 	@Test
 	void should_produce_onto_dlt_for_bad_message() throws Exception {
-		UUID orderId = UUID.randomUUID();
-		UUID articleId = UUID.randomUUID();
 		// Count can not be negative, validation will fail
-		operations.send("orders", orderId.toString(), new Order(orderId, articleId, -2))
+		Order order = new Order(randomUUID(), randomUUID(), -2);
+		operations.send("orders", order.orderId().toString(), order)
 				.addCallback(
 						success -> log.info("Success: {}", success),
 						failure -> log.info("Failure: {}", failure));
@@ -90,7 +94,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 		// Verify message produced onto Dead Letter Topic
 		ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 5000);
 
-		// Verify headers
+		// Verify headers present, and single header value
 		Headers headers = record.headers();
 		assertThat(headers).map(Header::key).containsAll(List.of(
 				"kafka_dlt-exception-fqcn",
@@ -106,9 +110,9 @@ class KafkaDeadLetterPublishingApplicationTests {
 		assertThat(new String(headers.lastHeader("kafka_dlt-exception-message").value()))
 				.contains("Field error in object 'order' on field 'count': rejected value [-2]");
 
-		// Verify payload value
+		// Verify payload value matches sent in order
 		assertThat(record.value()).isEqualToIgnoringWhitespace("""
-				{ "orderId": "%s", "articleId": "%s", "count":-2 }""".formatted(orderId, articleId));
+				{ "orderId": "%s", "articleId": "%s", "count":-2 }""".formatted(order.orderId(), order.articleId()));
 	}
 
 }
