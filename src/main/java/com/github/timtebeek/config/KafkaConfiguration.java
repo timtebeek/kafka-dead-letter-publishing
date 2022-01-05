@@ -28,7 +28,7 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 
 	@Bean
 	public NewTopic deadLetterTopic(AppKafkaProperties properties) {
-		// https://docs.spring.io/spring-kafka/reference/html/#configuring-topics
+		// https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#configuring-topics
 		return TopicBuilder.name(ORDERS + properties.deadletter().suffix())
 				.config(TopicConfig.RETENTION_MS_CONFIG, "" + properties.deadletter().retention().toMillis())
 				.build();
@@ -42,11 +42,11 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 		var recoverer = new DeadLetterPublishingRecoverer(operations);
 
 		// Spread out attempts over time, taking a little longer between each attempt
-		Backoff backoffProperties = properties.backoff();
-		var backOff = new ExponentialBackOff(backoffProperties.initialInterval().toMillis(),
-				backoffProperties.multiplier());
+		var backOff = new ExponentialBackOff(
+				properties.backoff().initialInterval().toMillis(),
+				properties.backoff().multiplier());
 		// Set a max for retries below max.poll.interval.ms; default: 5m, as otherwise we trigger consumer rebalance
-		backOff.setMaxElapsedTime(backoffProperties.maxElapsedTime().toMillis());
+		backOff.setMaxElapsedTime(properties.backoff().maxElapsedTime().toMillis());
 
 		// Do not try to recover from validation exceptions when validation of orders failed
 		var seekToCurrentErrorHandler = new DefaultErrorHandler(recoverer, backOff);
@@ -61,6 +61,7 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 
 	@Override
 	public void configureKafkaListeners(KafkaListenerEndpointRegistrar registrar) {
+		// https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#kafka-validation
 		registrar.setValidator(this.validator);
 	}
 }
