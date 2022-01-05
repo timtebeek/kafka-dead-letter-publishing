@@ -1,6 +1,7 @@
 package com.github.timtebeek.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.TopicConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -23,13 +24,19 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 
 	@Bean
 	public NewTopic ordersTopic() {
-		return TopicBuilder.name(ORDERS).build();
+		return TopicBuilder.name(ORDERS)
+				// Use more than one partition for frequently used input topic
+				.partitions(6)
+				.build();
 	}
 
 	@Bean
 	public NewTopic deadLetterTopic(AppKafkaProperties properties) {
 		// https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#configuring-topics
 		return TopicBuilder.name(ORDERS + properties.deadletter().suffix())
+				// Use only one partition for infrequently used Dead Letter Topic
+				.partitions(1)
+				// Use longer retention for Dead Letter Topic, allowing for more time to troubleshoot
 				.config(TopicConfig.RETENTION_MS_CONFIG, "" + properties.deadletter().retention().toMillis())
 				.build();
 	}
@@ -39,7 +46,9 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 			KafkaOperations<Object, Object> operations,
 			AppKafkaProperties properties) {
 		// Publish to dead letter topic any messages dropped after retries with back off
-		var recoverer = new DeadLetterPublishingRecoverer(operations);
+		var recoverer = new DeadLetterPublishingRecoverer(operations,
+				// Always send to first/only partition of DLT suffixed topic
+				(cr, e) -> new TopicPartition(cr.topic() + properties.deadletter().suffix(), 0));
 
 		// Spread out attempts over time, taking a little longer between each attempt
 		var backOff = new ExponentialBackOff(
