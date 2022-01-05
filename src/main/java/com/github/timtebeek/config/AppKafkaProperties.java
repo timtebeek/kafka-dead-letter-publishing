@@ -13,12 +13,11 @@ import javax.validation.constraints.Positive;
 @ConfigurationProperties(prefix = "app.kafka")
 @Validated
 public record AppKafkaProperties(
-		@NotNull @Valid TopicProperties topic,
-		@NotNull @Valid TopicProperties deadletter,
+		@NotNull @Valid DeadLetter deadletter,
 		@NotNull @Valid Backoff backoff) {
 }
 
-record TopicProperties(
+record DeadLetter(
 		@NotNull Duration retention,
 		@Nullable String suffix) {
 }
