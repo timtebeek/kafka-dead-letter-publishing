@@ -23,22 +23,15 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 
 	@Bean
 	public NewTopic ordersTopic() {
-		return createTopic(ORDERS).build();
+		return TopicBuilder.name(ORDERS).build();
 	}
 
 	@Bean
 	public NewTopic deadLetterTopic(AppKafkaProperties properties) {
-		return createTopic(ORDERS + properties.deadletter().suffix())
+		// https://docs.spring.io/spring-kafka/reference/html/#configuring-topics
+		return TopicBuilder.name(ORDERS + properties.deadletter().suffix())
 				.config(TopicConfig.RETENTION_MS_CONFIG, "" + properties.deadletter().retention().toMillis())
 				.build();
-	}
-
-	// https://docs.spring.io/spring-kafka/reference/html/#configuring-topics
-	private static TopicBuilder createTopic(String topic) {
-		return TopicBuilder.name(topic)
-				.partitions(6)
-				.replicas(1)
-				.config(TopicConfig.COMPRESSION_TYPE_CONFIG, "producer");
 	}
 
 	@Bean
