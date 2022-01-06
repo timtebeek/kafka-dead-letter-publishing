@@ -84,7 +84,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 
 	@Test
 	void should_produce_onto_dlt_for_bad_message() throws Exception {
-		// Count can not be negative, validation will fail
+		// Amount can not be negative, validation will fail
 		Order order = new Order(randomUUID(), randomUUID(), -2);
 		operations.send("orders", order.orderId().toString(), order)
 				.addCallback(
@@ -107,12 +107,16 @@ class KafkaDeadLetterPublishingApplicationTests {
 				"kafka_dlt-original-timestamp",
 				"kafka_dlt-original-timestamp-type",
 				"kafka_dlt-original-consumer-group"));
+		assertThat(new String(headers.lastHeader("kafka_dlt-exception-fqcn").value()))
+				.isEqualTo("org.springframework.kafka.listener.ListenerExecutionFailedException");
+		assertThat(new String(headers.lastHeader("kafka_dlt-exception-cause-fqcn").value()))
+				.isEqualTo("org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException");
 		assertThat(new String(headers.lastHeader("kafka_dlt-exception-message").value()))
-				.contains("Field error in object 'order' on field 'count': rejected value [-2]");
+				.contains("Field error in object 'order' on field 'amount': rejected value [-2]");
 
 		// Verify payload value matches sent in order
 		assertThat(record.value()).isEqualToIgnoringWhitespace("""
-				{ "orderId": "%s", "articleId": "%s", "count":-2 }""".formatted(order.orderId(), order.articleId()));
+				{ "orderId": "%s", "articleId": "%s", "amount":-2 }""".formatted(order.orderId(), order.articleId()));
 	}
 
 }

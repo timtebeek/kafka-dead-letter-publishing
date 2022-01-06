@@ -42,5 +42,5 @@ class OrderListener {
 record Order(
 		@NotNull UUID orderId,
 		@NotNull UUID articleId,
-		@Positive int count) {
+		@Positive int amount) {
 }

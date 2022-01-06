@@ -42,7 +42,7 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 	}
 
 	@Bean
-	public DefaultErrorHandler seekToCurrentErrorHandler(
+	public DefaultErrorHandler defaultErrorHandler(
 			KafkaOperations<Object, Object> operations,
 			AppKafkaProperties properties) {
 		// Publish to dead letter topic any messages dropped after retries with back off
@@ -59,11 +59,11 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 		exponentialBackOff.setMaxInterval(backoff.maxInterval().toMillis());
 
 		// Do not try to recover from validation exceptions when validation of orders failed
-		var seekToCurrentErrorHandler = new DefaultErrorHandler(recoverer, exponentialBackOff);
-		seekToCurrentErrorHandler.addNotRetryableExceptions(
+		var defaultErrorHandler = new DefaultErrorHandler(recoverer, exponentialBackOff);
+		defaultErrorHandler.addNotRetryableExceptions(
 				javax.validation.ValidationException.class);
 
-		return seekToCurrentErrorHandler;
+		return defaultErrorHandler;
 	}
 
 	@Autowired

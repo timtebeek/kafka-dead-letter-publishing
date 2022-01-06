@@ -1,11 +1,79 @@
 = Kafka Dead Letter Publishing
 
-https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#dead-letters[Publishing Dead-letter Records]
+When consuming event streams in Apache Kafka, there are 
+https://www.confluent.io/blog/error-handling-patterns-in-kafka/[various ways of handling exceptions].
+This blog post will give a detailed example of 
+https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#dead-letters[publishing dead-letter records] with Spring Kafka.
+Areas where we deviate from the defaults will be highlighted, along with the considerations, and tests are provided.
+
+== @KafkaListener application
+
+To start we need a small Kafka Consumer application.
+Ours will process orders by logging them when received.
+Since we are using Java 17, we will use a Java `record` for our `@Payload`.
+Notice how we are using
+https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#kafka-validation[@KafkaListener @Payload validation]
+by applying `@Validated` onto our order payload.
+
+[source,java]
+----
+@Component
+class OrderListener {
+
+	private static final Logger log = LoggerFactory.getLogger(OrderListener.class);
+
+	@KafkaListener(topics = KafkaConfiguration.ORDERS)
+	void listen(@Payload @Validated Order order) {
+		log.info("Received: {}", order);
+	}
+
+}
+
+record Order(
+	@NotNull UUID orderId,
+	@NotNull UUID articleId,
+	@Positive int amount) {
+}
+----
+
+We will trigger an exception in our tests by sending in an order with a negative amount.
+You would expect to see a `ListenerExecutionFailedException` with an underlying cause of `MethodArgumentNotValidException`.
+
+== Configuring topics
+
+TODO mention DLT needs to exist, why only one partition, why longer than default retention
+
 
 https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#configuring-topics[Configuring Topics]
 
-https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#kafka-validation[@KafkaListener @Payload Validation]
+
+== Configuring DeadLetterPublishingRecoverer
+
+TODO mention partition assignment for single partition
+
+
+== Configuring ExponentialBackOffWithMaxRetries
+
+TODO mention how this calculates MaxElapsedTime, how to avoid consumer rebalance,
+
+
+== Testing the DeadLetterPublishingRecoverer
+
+TODO mention test utils, test containers, exception headers returned, payload passed as it was, consume duration
 
 https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#ktu[KafkaTestUtils]
 
 https://www.testcontainers.org/modules/kafka/[Testcontainers Kafka]
+
+
+== Conclusion
+
+TODO Considerations such as breaking ordering guarantees, manually forwarding with AKHQ
+
+
+The https://github.com/timtebeek/kafka-dead-letter-publishing[full application is available at GitHub].
+
+Developed using
+https://spring.io/projects/spring-kafka[Spring Kafka] version 2.8.1 and
+https://docs.confluent.io/platform/current/release-notes/index.html[Confluent Platform for Apache Kafka] version 7.0.1.
+
