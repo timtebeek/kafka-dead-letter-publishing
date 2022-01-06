@@ -24,6 +24,7 @@ record DeadLetter(
 
 record Backoff(
 		@NotNull Duration initialInterval,
-		@Positive double multiplier,
-		@NotNull Duration maxElapsedTime) {
+		@NotNull Duration maxInterval,
+		@Positive int maxRetries,
+		@Positive double multiplier) {
 }

@@ -13,7 +13,7 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.util.backoff.ExponentialBackOff;
+import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 @Configuration
@@ -51,14 +51,15 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 				(cr, e) -> new TopicPartition(cr.topic() + properties.deadletter().suffix(), 0));
 
 		// Spread out attempts over time, taking a little longer between each attempt
-		var backOff = new ExponentialBackOff(
-				properties.backoff().initialInterval().toMillis(),
-				properties.backoff().multiplier());
-		// Set a max for retries below max.poll.interval.ms; default: 5m, as otherwise we trigger consumer rebalance
-		backOff.setMaxElapsedTime(properties.backoff().maxElapsedTime().toMillis());
+		// Set a max for retries below max.poll.interval.ms; default: 5m, as otherwise we trigger a consumer rebalance
+		Backoff backoff = properties.backoff();
+		var exponentialBackOff = new ExponentialBackOffWithMaxRetries(backoff.maxRetries());
+		exponentialBackOff.setInitialInterval(backoff.initialInterval().toMillis());
+		exponentialBackOff.setMultiplier(backoff.multiplier());
+		exponentialBackOff.setMaxInterval(backoff.maxInterval().toMillis());
 
 		// Do not try to recover from validation exceptions when validation of orders failed
-		var seekToCurrentErrorHandler = new DefaultErrorHandler(recoverer, backOff);
+		var seekToCurrentErrorHandler = new DefaultErrorHandler(recoverer, exponentialBackOff);
 		seekToCurrentErrorHandler.addNotRetryableExceptions(
 				javax.validation.ValidationException.class);
 
