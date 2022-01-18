@@ -3,14 +3,14 @@
 When consuming event streams in Apache Kafka, there are 
 https://www.confluent.io/blog/error-handling-patterns-in-kafka/[various ways of handling exceptions].
 This blog post will give a detailed example of 
-https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#dead-letters[publishing dead-letter records] with Spring Kafka.
+https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#dead-letters[publishing dead-letter records] with Spring Kafka.
 Areas where we deviate from the defaults will be highlighted, along with the considerations, and tests are provided.
 
 == @KafkaListener application
 
 To start we need a small Kafka Consumer application.
 Ours will process orders by logging them when received.
-Since we are using Java 17, we will use a Java `record` for our `@Payload`.
+As we are using Java 17, we can use a Java `record` for our `@Payload`.
 
 [source,java]
 ----
@@ -35,7 +35,7 @@ record Order(
 
 
 Notice how we are using
-https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#kafka-validation[@KafkaListener @Payload validation]
+https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#kafka-validation[@KafkaListener @Payload validation]
 by annotating our order payload as `@Validated`.
 We only need the following bit of configuration to enable validation.
 
@@ -53,6 +53,8 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
     registrar.setValidator(this.validator);
   }
 
+  ...
+
 }
 ----
 
@@ -62,7 +64,7 @@ You would then expect to see a `ListenerExecutionFailedException` with an underl
 == Configuring topics
 
 Next we need two topics; one regular topic for our incoming orders, and another outgoing dead letter topic for any orders we fail to handle successfully. 
-Both are https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#configuring-topics[created in the same way] using `@Bean NewTopic`, which in turn uses a `TopicBuilder`.
+Both are https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#configuring-topics[created in the same way] using `@Bean NewTopic`, which in turn uses a `TopicBuilder`.
 
 [source,java]
 ----
@@ -78,7 +80,7 @@ public NewTopic ordersTopic() {
 
 @Bean
 public NewTopic deadLetterTopic(AppKafkaProperties properties) {
-  // https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#configuring-topics
+  // https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#configuring-topics
   return TopicBuilder.name(ORDERS + properties.deadletter().suffix())
     // Use only one partition for infrequently used Dead Letter Topic
     .partitions(1)
@@ -90,18 +92,18 @@ public NewTopic deadLetterTopic(AppKafkaProperties properties) {
 You will notice two differences between the topics:
 
 1. The dead letter topic only has one partition.
-The reference documentation says to https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#dead-letters[by default to use as many partitions] on a dead letter topic as are available on the original topic.
-That way the DLT record can arrive at the same partition as the original record.  
-However, with a small change you can use a single partition for the infrequently used DLT, as the original partition is also already available as a header.
+The reference documentation says to https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#dead-letters[by default to use as many partitions] on a dead letter topic as are available on the original topic.
+That way the DLT record can arrive at the same partition as the original record.
+However, with a small change below you can use a single partition for the infrequently used DLT, as the original partition is also already available as a header.
 This way your brokers need not manage a lot of unused partitions.
 
 2. The dead letter topic has an explicitly set retention.
-This way we can keep DLT records around longer than then original topic records, for debugging and recovery later if needed.
+This way we can keep DLT records around longer than the original topic records, for debugging and recovery later if needed.
 
 == Configuring dead letter publishing
 
 Next we will configure our error handler, at first only looking at the `ConsumerRecordRecoverer`.
-We will use https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#dead-letters[the default DeadLetterPublishingRecoverer],
+We will use https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#dead-letters[the default DeadLetterPublishingRecoverer],
 with a custom argument `destinationResolver` to route to the first and only partition of our dead letter topic.
 
 [source,java]
@@ -131,10 +133,10 @@ public DefaultErrorHandler defaultErrorHandler(
 }
 ----
 
-We will want to give our service some time to try to recover before sending records onto the dead letter topic.
-For that we use an https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#exp-backoff[`ExponentialBackOffWithMaxRetries`],
-which is a `BackOff` implementation that can increase the time to wait between a maximum number of retries before sending a record to the DLT.
-That way if for instance the database is restarting, you won't immediately get DLT records provided the restart completes soon enough.
+We will want to give our service some time to try to recover before publishing records onto the dead letter topic.
+For that we use an https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#exp-backoff[`ExponentialBackOffWithMaxRetries`],
+which is a `BackOff` implementation that can increase the time to wait between a maximum number of retries before publishing a record to the DLT.
+That way if for instance the database is restarting, you won't immediately get DLT records, provided the restart completes soon enough.
 In any case you will want to stay below your `max.poll.interval.ms` (default: 5 minutes) to prevent triggering a consumer rebalance.
 
 Finally, we bring together the `ConsumerRecordRecoverer` and `BackOff` in a `DefaultErrorHandler`.
@@ -149,8 +151,8 @@ https://www.testcontainers.org/modules/kafka/[TestContainers for Kafka] allows u
 which we wire up to our Spring Boot application using the
 https://docs.spring.io/spring-boot/docs/2.6.2/reference/htmlsingle/#howto.testing.testcontainers[`@DynamicPropertySource`] annotation.
 
-We use `@Autowired` to get `KafkaOperations` instance with which to produce our input records.
-And we create a `KafkaConsumer` https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#ktu[using KafkaTestUtils] to read any produced dead letter topic records.
+We use `@Autowired` to get a `KafkaOperations` instance with which to produce our input records.
+And we create a `KafkaConsumer` https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#ktu[using KafkaTestUtils] to read any produced dead letter topic records.
 
 [source,java]
 ----
@@ -179,7 +181,7 @@ class KafkaDeadLetterPublishingApplicationTests {
   @BeforeAll
   static void setup() {
     // Create a test consumer that handles <String, String> records, listening to orders.DLT
-    // https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#testing
+    // https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#testing
     var consumerProps = KafkaTestUtils.consumerProps(kafka.getBootstrapServers(), "test-consumer", "true");
     consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
     kafkaConsumer = new KafkaConsumer<>(consumerProps);
@@ -265,7 +267,7 @@ void should_produce_onto_dlt_for_bad_message() throws Exception {
 
 == Conclusion
 
-We have seen that it is fairly easy to add backoff retries, dead letter topic publishing and recovery to Spring Kafka.
+We have seen that it is fairly easy to add retries with back off, dead letter topic publishing and recovery to Spring Kafka.
 This allows you to inspect any failed records on a separate topic, with diagnostic details available in the headers and payload.
 Tools such as AKHQ can then be used to https://github.com/tchiotludo/akhq/issues/579[publish the dead letter topic records onto the input topic again] after a fix has been applied.
 
@@ -273,12 +275,12 @@ Now of course as said in the outline, this is just one of
 https://www.confluent.io/blog/error-handling-patterns-in-kafka/[various ways of handling exceptions].
 Notably this method provides no automated way of processing records published onto a dead letter topic.
 It is fine to use for infrequent dead letter topic publication, where fully automated recovery is not necessary.
-Also take into account that ordering guarantees as not maintained for subsequent records using the same key.
+Also take into account that processing order guarantees as not maintained for subsequent records using the same key.
 You can look into retry topics and redirected events if you need more advanced ordered processing guarantees.
 
-The https://github.com/timtebeek/kafka-dead-letter-publishing[full application is available at GitHub].
 
 Developed using
-https://spring.io/projects/spring-kafka[Spring Kafka] version 2.8.1 and
+https://spring.io/projects/spring-kafka[Spring Kafka] version 2.8.2 and
 https://docs.confluent.io/platform/current/release-notes/index.html[Confluent Platform for Apache Kafka] version 7.0.1.
+The https://github.com/timtebeek/kafka-dead-letter-publishing[full application is available at GitHub].
 
