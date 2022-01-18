@@ -59,11 +59,10 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 		exponentialBackOff.setMaxInterval(backoff.maxInterval().toMillis());
 
 		// Do not try to recover from validation exceptions when validation of orders failed
-		var defaultErrorHandler = new DefaultErrorHandler(recoverer, exponentialBackOff);
-		defaultErrorHandler.addNotRetryableExceptions(
-				javax.validation.ValidationException.class);
+		var errorHandler = new DefaultErrorHandler(recoverer, exponentialBackOff);
+		errorHandler.addNotRetryableExceptions(javax.validation.ValidationException.class);
 
-		return defaultErrorHandler;
+		return errorHandler;
 	}
 
 	@Autowired

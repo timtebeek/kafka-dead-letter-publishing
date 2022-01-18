@@ -92,7 +92,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 						failure -> log.info("Failure: {}", failure));
 
 		// Verify message produced onto Dead Letter Topic
-		ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 5000);
+		ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 2000);
 
 		// Verify headers present, and single header value
 		Headers headers = record.headers();
