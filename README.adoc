@@ -63,7 +63,7 @@ You would then expect to see a `ListenerExecutionFailedException` with an underl
 
 == Configuring topics
 
-Next we need two topics; one regular topic for our incoming orders, and another outgoing dead letter topic for any orders we fail to handle successfully. 
+Next we need two topics; one regular topic for our incoming orders, and another outgoing dead letter topic (DLT) for any orders we fail to handle successfully. 
 Both are https://docs.spring.io/spring-kafka/docs/2.8.2/reference/html/#configuring-topics[created in the same way] using `@Bean NewTopic`, which in turn uses a `TopicBuilder`.
 
 [source,java]
