@@ -22,6 +22,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import java.time.Duration;
 import java.util.List;
 
 import static java.util.UUID.randomUUID;
@@ -70,15 +71,12 @@ class KafkaDeadLetterPublishingApplicationTests {
 	void should_not_produce_onto_dlt_for_ok_message() throws Exception {
 		// Send in valid order
 		Order order = new Order(randomUUID(), randomUUID(), 1);
-		operations.send("orders", order.orderId().toString(), order)
-				.addCallback(
-						success -> log.info("Success: {}", success),
-						failure -> log.info("Failure: {}", failure));
+		operations.send("orders", order.orderId().toString(), order);
 
 		// Verify no message was produced onto Dead Letter Topic
 		assertThrows(
 				IllegalStateException.class,
-				() -> KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 5000),
+				() -> KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, Duration.ofSeconds(5)),
 				"No records found for topic");
 	}
 
@@ -86,13 +84,10 @@ class KafkaDeadLetterPublishingApplicationTests {
 	void should_produce_onto_dlt_for_bad_message() throws Exception {
 		// Amount can not be negative, validation will fail
 		Order order = new Order(randomUUID(), randomUUID(), -2);
-		operations.send("orders", order.orderId().toString(), order)
-				.addCallback(
-						success -> log.info("Success: {}", success),
-						failure -> log.info("Failure: {}", failure));
+		operations.send("orders", order.orderId().toString(), order);
 
 		// Verify message produced onto Dead Letter Topic
-		ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 2000);
+		ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, Duration.ofSeconds(2));
 
 		// Verify headers present, and single header value
 		Headers headers = record.headers();

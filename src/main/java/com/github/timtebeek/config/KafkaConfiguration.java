@@ -60,7 +60,7 @@ public class KafkaConfiguration implements KafkaListenerConfigurer {
 
 		// Do not try to recover from validation exceptions when validation of orders failed
 		var errorHandler = new DefaultErrorHandler(recoverer, exponentialBackOff);
-		errorHandler.addNotRetryableExceptions(javax.validation.ValidationException.class);
+		errorHandler.addNotRetryableExceptions(jakarta.validation.ValidationException.class);
 
 		return errorHandler;
 	}
