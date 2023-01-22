@@ -54,7 +54,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 	@BeforeAll
 	static void setup() {
 		// Create a test consumer that handles <String, String> records, listening to orders.DLT
-		// https://docs.spring.io/spring-kafka/docs/current/reference/html/#testing
+		// https://docs.spring.io/spring-kafka/docs/3.0.x/reference/html/#testing
 		var consumerProps = KafkaTestUtils.consumerProps(kafka.getBootstrapServers(), "test-consumer", "true");
 		consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 		kafkaConsumer = new KafkaConsumer<>(consumerProps);
