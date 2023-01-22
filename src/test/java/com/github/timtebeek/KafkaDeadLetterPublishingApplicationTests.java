@@ -22,6 +22,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import java.time.Duration;
 import java.util.List;
 
 import static java.util.UUID.randomUUID;
@@ -37,7 +38,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 	private static final Logger log = LoggerFactory.getLogger(KafkaDeadLetterPublishingApplicationTests.class);
 
 	@Container // https://www.testcontainers.org/modules/kafka/
-	static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.0.1"));
+	static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.3.1"));
 
 	@DynamicPropertySource
 	static void setProperties(DynamicPropertyRegistry registry) {
@@ -53,7 +54,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 	@BeforeAll
 	static void setup() {
 		// Create a test consumer that handles <String, String> records, listening to orders.DLT
-		// https://docs.spring.io/spring-kafka/docs/2.8.1/reference/html/#testing
+		// https://docs.spring.io/spring-kafka/docs/3.0.x/reference/html/#testing
 		var consumerProps = KafkaTestUtils.consumerProps(kafka.getBootstrapServers(), "test-consumer", "true");
 		consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 		kafkaConsumer = new KafkaConsumer<>(consumerProps);
@@ -67,32 +68,42 @@ class KafkaDeadLetterPublishingApplicationTests {
 	}
 
 	@Test
-	void should_not_produce_onto_dlt_for_ok_message() throws Exception {
+	void should_not_produce_onto_dlt_for_ok_message() {
 		// Send in valid order
 		Order order = new Order(randomUUID(), randomUUID(), 1);
 		operations.send("orders", order.orderId().toString(), order)
-				.addCallback(
-						success -> log.info("Success: {}", success),
-						failure -> log.info("Failure: {}", failure));
+				.whenCompleteAsync((result, ex) -> {
+					if (ex == null) {
+						log.info("Success: {}", result);
+					}
+					else {
+						log.error("Failure ", ex);
+					}
+				});
 
 		// Verify no message was produced onto Dead Letter Topic
 		assertThrows(
 				IllegalStateException.class,
-				() -> KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 5000),
+				() -> KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, Duration.ofSeconds(5)),
 				"No records found for topic");
 	}
 
 	@Test
-	void should_produce_onto_dlt_for_bad_message() throws Exception {
+	void should_produce_onto_dlt_for_bad_message() {
 		// Amount can not be negative, validation will fail
 		Order order = new Order(randomUUID(), randomUUID(), -2);
 		operations.send("orders", order.orderId().toString(), order)
-				.addCallback(
-						success -> log.info("Success: {}", success),
-						failure -> log.info("Failure: {}", failure));
+				.whenCompleteAsync((result, ex) -> {
+					if (ex == null) {
+						log.info("Success: {}", result);
+					}
+					else {
+						log.error("Failure ", ex);
+					}
+				});
 
 		// Verify message produced onto Dead Letter Topic
-		ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, 2000);
+		ConsumerRecord<String, String> record = KafkaTestUtils.getSingleRecord(kafkaConsumer, ORDERS_DLT, Duration.ofSeconds(2));
 
 		// Verify headers present, and single header value
 		Headers headers = record.headers();
@@ -112,7 +123,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 		assertThat(new String(headers.lastHeader("kafka_dlt-exception-cause-fqcn").value()))
 				.isEqualTo("org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException");
 		assertThat(new String(headers.lastHeader("kafka_dlt-exception-message").value()))
-				.contains("Field error in object 'order' on field 'amount': rejected value [-2]");
+				.contains("Listener method could not be invoked with the incoming message");
 
 		// Verify payload value matches sent in order
 		assertThat(record.value()).isEqualToIgnoringWhitespace("""
