@@ -17,10 +17,9 @@ import org.springframework.kafka.core.KafkaOperations;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 import java.util.List;
@@ -38,7 +37,7 @@ class KafkaDeadLetterPublishingApplicationTests {
 	private static final Logger log = LoggerFactory.getLogger(KafkaDeadLetterPublishingApplicationTests.class);
 
 	@Container // https://www.testcontainers.org/modules/kafka/
-	static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.3.1"));
+	static KafkaContainer kafka = new KafkaContainer("apache/kafka-native:3.8.0");
 
 	@DynamicPropertySource
 	static void setProperties(DynamicPropertyRegistry registry) {
